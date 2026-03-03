@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Dashboard - Premium</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', 
+            theme: {
+                extend: {
+                    colors: {
+                        brandGold: '#D4AF37',
+                        brandSuccess: '#10B981',
+                        brandDanger: '#EF4444',
+                        lightBg: '#F3F4F6',
+                        lightPanel: '#FFFFFF',
+                        lightText: '#1F2937',
+                        darkBg: '#121212',
+                        darkPanel: '#1E1E1E',
+                        darkText: '#E0E0E0',
+                        darkInput: '#2C2C2C',
+                        darkBorder: '#333333'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+        body { user-select: none; } /* Prevents text highlighting */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #444; }
+
+        .glass-header {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .dark .glass-header { background-color: rgba(30, 30, 30, 0.85); }
+        
+        .glass-panel {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .dark .glass-panel {
+            background-color: #1E1E1E;
+            border: 1px solid #333333;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+
+        .premium-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            outline: none;
+            border: 1px solid #D1D5DB;
+            background-color: #FFFFFF;
+            color: #1F2937;
+            transition: all 0.2s;
+        }
+        .premium-input:focus {
+            border-color: #D4AF37;
+            box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.2);
+        }
+        .dark .premium-input {
+            border-color: #333333;
+            background-color: #2C2C2C;
+            color: #E0E0E0;
+        }
+        
+        /* Input overrides for date pickers to blend better */
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+        input[type="month"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+            cursor: pointer;
+        }
+        .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+        .dark input[type="month"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.8);
+        }
+
+        /* * ROLE-BASED ACCESS CONTROL CSS 
+         * Hides admin elements if logged in as cashier
+         */
+        body[data-role="cashier"] .admin-only {
+            display: none !important;
+        }
+        /* Make the POS card span the full width if Expenses card is hidden */
+        @media (min-width: 768px) {
+            body[data-role="cashier"] #pos-card {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-lightBg dark:bg-darkBg text-lightText dark:text-darkText h-screen flex flex-col overflow-hidden font-sans">
+
+    <div id="login-overlay" class="fixed inset-0 bg-lightBg dark:bg-darkBg z-[9999] flex items-center justify-center animate-fade-in">
+        <div class="glass-panel p-10 rounded-xl w-96 text-center">
+            <i class="fa-solid fa-building-shield text-4xl text-brandGold mb-4"></i>
+            <h2 class="text-2xl font-semibold mb-6">Business System Access</h2>
+            <input type="password" id="password-input" class="premium-input mb-4 text-center" placeholder="Enter PIN / Password" onkeypress="if(event.key === 'Enter') checkLogin()">
+            <button class="w-full bg-brandGold hover:bg-yellow-600 text-white font-semibold py-3 rounded-lg transition-colors" onclick="checkLogin()">
+                <i class="fa-solid fa-unlock mr-2"></i> Authenticate
+            </button>
+            <p id="login-error" class="text-brandDanger mt-4 hidden font-semibold">Invalid Credentials</p>
+        </div>
+    </div>
+
+    <header class="glass-header sticky top-0 z-40 border-b border-gray-200 dark:border-darkBorder px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-briefcase text-brandGold text-2xl"></i>
+            <h1 class="text-xl font-semibold tracking-wide">Business <span class="text-brandGold">Manager</span></h1>
+            <span id="role-badge" class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-gray-200 text-gray-600 dark:bg-darkInput dark:text-gray-400 hidden"></span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="openModal('financial-report-modal')" class="admin-only px-3 py-2 text-xs font-semibold bg-brandSuccess/10 text-brandSuccess border border-brandSuccess/30 rounded-lg hover:bg-brandSuccess/20 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie"></i> FINANCIALS
+            </button>
+            <button onclick="openModal('inventory-report-modal')" class="admin-only px-3 py-2 text-xs font-semibold bg-brandGold/10 text-brandGold border border-brandGold/30 rounded-lg hover:bg-brandGold/20 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice"></i> INVENTORY REPORT
+            </button>
+            <button onclick="toggleTheme()" class="p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-darkInput transition-all border border-transparent hover:border-gray-200 dark:hover:border-darkBorder">
+                <i id="theme-icon" class="fa-solid fa-sun text-brandGold"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto p-6 md:p-10 max-w-7xl mx-auto w-full">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10 animate-slide-up admin-only">
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Sales (Today)</p>
+                    <div class="w-10 h-10 bg-brandSuccess/10 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-chart-line text-brandSuccess"></i>
+                    </div>
+                </div>
+                <h3 id="stat-sales" class="text-2xl font-bold">₱0.00</h3>
+                <p class="text-xs text-brandSuccess mt-2 font-semibold">Tracked automatically via POS</p>
+            </div>
+            
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Inventory Items</p>
+                    <div class="w-10 h-10 bg-brandGold/10 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-boxes-stacked text-brandGold"></i>
+                    </div>
+                </div>
+                <h3 id="stat-total-items" class="text-2xl font-bold">0</h3>
+                <p class="text-xs text-gray-400 mt-2 font-semibold">Unique SKU count</p>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Low Stock</p>
+                    <div class="w-10 h-10 bg-brandDanger/10 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-triangle-exclamation text-brandDanger"></i>
+                    </div>
+                </div>
+                <h3 id="stat-low-stock" class="text-2xl font-bold">0</h3>
+                <p class="text-xs text-brandDanger mt-2 font-semibold">Requires restock</p>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Daily Expenses</p>
+                    <div class="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-hand-holding-dollar text-blue-500"></i>
+                    </div>
+                </div>
+                <h3 id="stat-expenses" class="text-2xl font-bold">₱0.00</h3>
+                <p class="text-xs text-blue-500 mt-2 font-semibold">Tracked daily cost</p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10 animate-slide-up" style="animation-delay: 0.1s;">
+            <div id="pos-card" class="glass-panel p-8 rounded-3xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-8 opacity-10 transform scale-150 group-hover:scale-[2] transition-transform">
+                    <i class="fa-solid fa-cart-shopping text-8xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-4">Point of Sale</h2>
+                <p class="text-gray-500 dark:text-gray-400 mb-8 max-w-xs">Start a new transaction and process payments.</p>
+                <div class="flex gap-4">
+                    <button onclick="openModal('pos-modal')" class="bg-brandGold hover:bg-yellow-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-brandGold/20">
+                        OPEN POS TERMINAL
+                    </button>
+                </div>
+            </div>
+
+            <div id="expense-card" class="admin-only glass-panel p-8 rounded-3xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-8 opacity-10 transform scale-150 group-hover:scale-[2] transition-transform">
+                    <i class="fa-solid fa-file-invoice-dollar text-8xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold mb-4">Record Expenses</h2>
+                <p class="text-gray-500 dark:text-gray-400 mb-8 max-w-xs">Log operational costs and overhead.</p>
+                <div class="flex gap-4">
+                    <button onclick="openModal('expense-modal')" class="bg-brandDanger hover:bg-red-600 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-brandDanger/20">
+                        CASH OUT
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-only flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 animate-slide-up" style="animation-delay: 0.2s;">
+            <div>
+                <h2 class="text-2xl font-bold">Catalog & Inventory</h2>
+                <p class="text-sm text-gray-500">Manage your product offerings</p>
+            </div>
+            <button onclick="openModal('add-modal')" class="bg-lightText dark:bg-white text-white dark:text-darkBg px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> ADD PRODUCT
+            </button>
+        </div>
+
+        <div id="inventory-container" class="admin-only grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12 animate-slide-up" style="animation-delay: 0.3s;">
+            <div class="col-span-full py-20 text-center opacity-50">
+                <i class="fa-solid fa-box-open text-6xl mb-4"></i>
+                <p class="text-xl font-semibold">Inventory is empty. Add your first product to begin.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="glass-header border-t border-gray-200 dark:border-darkBorder p-4 px-10 flex justify-between items-center text-xs font-semibold text-gray-500 uppercase tracking-widest">
+        <div class="flex items-center gap-4">
+            <span class="flex items-center gap-2"><i class="fa-solid fa-circle text-[8px] text-brandSuccess"></i> System Online</span>
+            <span class="opacity-30">|</span>
+            <span>Version 5.0.0 (RBAC Security)</span>
+        </div>
+    </footer>
+
+    <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md p-8 rounded-3xl animate-slide-up">
+            <h3 class="text-xl font-bold mb-6">New Catalog Entry</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Product Name</label>
+                    <input type="text" id="new-item-name" class="premium-input" placeholder="Enter name">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Price (₱)</label>
+                        <input type="number" id="new-item-price" class="premium-input" placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Initial Stock</label>
+                        <input type="number" id="new-item-stock" class="premium-input" placeholder="0">
+                    </div>
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button onclick="addItem()" class="flex-1 bg-brandGold text-white py-4 rounded-2xl font-bold">SAVE</button>
+                    <button onclick="closeModal('add-modal')" class="px-6 py-4 rounded-2xl font-bold border border-gray-200 dark:border-darkBorder">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md p-8 rounded-3xl animate-slide-up">
+            <h3 class="text-xl font-bold mb-6">Edit Catalog Entry</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="edit-item-id">
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Product Name</label>
+                    <input type="text" id="edit-item-name" class="premium-input" placeholder="Enter name">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Price (₱)</label>
+                        <input type="number" id="edit-item-price" class="premium-input" placeholder="0.00">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Current Stock</label>
+                        <input type="number" id="edit-item-stock" class="premium-input" placeholder="0">
+                    </div>
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button onclick="saveEditItem()" class="flex-1 bg-brandGold text-white py-4 rounded-2xl font-bold">UPDATE</button>
+                    <button onclick="closeModal('edit-modal')" class="px-6 py-4 rounded-2xl font-bold border border-gray-200 dark:border-darkBorder">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pos-modal" class="fixed inset-0 bg-white dark:bg-darkBg z-[100] hidden flex-col animate-slide-up">
+        <div class="p-4 md:p-6 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center bg-gray-50/50 dark:bg-darkPanel">
+            <h3 class="text-2xl font-bold flex items-center gap-3">
+                <i class="fa-solid fa-cash-register text-brandGold"></i> Point of Sale Terminal
+            </h3>
+            <div class="flex items-center gap-3">
+                <button onclick="toggleFullScreen()" class="p-3 text-gray-500 hover:text-brandGold bg-white dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl transition-colors shadow-sm" title="Toggle Full Screen Mode">
+                    <i id="fullscreen-icon" class="fa-solid fa-expand text-xl"></i>
+                </button>
+                <button onclick="closeModal('pos-modal')" class="px-6 py-3 font-bold text-white bg-brandDanger hover:bg-red-600 rounded-xl transition-colors shadow-sm shadow-brandDanger/30">
+                    <i class="fa-solid fa-xmark mr-2"></i> CLOSE POS
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 flex overflow-hidden">
+            <div class="w-2/3 flex flex-col border-r border-gray-200 dark:border-darkBorder bg-lightBg dark:bg-darkBg">
+                
+                <div class="p-4 border-b border-gray-200 dark:border-darkBorder bg-white dark:bg-darkPanel">
+                    <div class="relative max-w-2xl mx-auto">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="pos-search" oninput="filterPOSItems()" class="premium-input pl-10" placeholder="Search inventory by name...">
+                    </div>
+                </div>
+
+                <div class="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4" id="pos-item-list"></div>
+            </div>
+
+            <div class="w-1/3 flex flex-col bg-white dark:bg-darkPanel border-l border-gray-200 dark:border-darkBorder">
+                <div class="p-3 border-b border-gray-200 dark:border-darkBorder bg-gray-50 dark:bg-darkInput/50 flex justify-between items-center">
+                    <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Cart Items</span>
+                    <div class="admin-only">
+                        <input type="datetime-local" id="pos-custom-date" class="text-xs p-1.5 rounded border border-gray-300 dark:border-darkBorder bg-white dark:bg-darkBg text-gray-700 dark:text-gray-300 outline-none focus:border-brandGold transition-all" title="Backdate Transaction (Optional)">
+                    </div>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-2 border-b border-gray-200 dark:border-darkBorder bg-gray-50/30 dark:bg-darkBg/30" id="cart-items"></div>
+                
+                <div class="p-6 bg-white dark:bg-darkPanel">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-lg font-bold text-gray-500">Total Due:</span>
+                        <span id="cart-total" class="text-4xl font-black text-brandGold tracking-tight">₱0.00</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-bold text-gray-400 uppercase">Cash Tendered:</span>
+                        <span id="pos-tendered" class="text-xl font-bold">₱0.00</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="text-sm font-bold text-gray-400 uppercase">Change:</span>
+                        <span id="pos-change" class="text-xl font-bold text-brandSuccess">₱0.00</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 mb-6">
+                        <button onclick="calcInput('1')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">1</button>
+                        <button onclick="calcInput('2')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">2</button>
+                        <button onclick="calcInput('3')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">3</button>
+                        
+                        <button onclick="calcInput('4')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">4</button>
+                        <button onclick="calcInput('5')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">5</button>
+                        <button onclick="calcInput('6')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">6</button>
+                        
+                        <button onclick="calcInput('7')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">7</button>
+                        <button onclick="calcInput('8')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">8</button>
+                        <button onclick="calcInput('9')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">9</button>
+                        
+                        <button onclick="calcInput('C')" class="p-4 bg-brandDanger/10 text-brandDanger border border-brandDanger/20 rounded-xl text-xl font-bold hover:bg-brandDanger/20 transition-colors">C</button>
+                        <button onclick="calcInput('0')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">0</button>
+                        <button onclick="calcInput('.')" class="p-4 bg-gray-50 dark:bg-darkInput border border-gray-200 dark:border-darkBorder rounded-xl text-xl font-bold hover:bg-gray-100 dark:hover:bg-darkBorder transition-colors">.</button>
+                    </div>
+
+                    <button onclick="processSale()" class="w-full bg-brandGold text-white py-5 rounded-xl text-xl font-black hover:bg-yellow-600 transition-colors shadow-lg shadow-brandGold/30 uppercase tracking-widest">Process Sale</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="expense-modal" class="admin-only fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md p-8 rounded-3xl animate-slide-up">
+            <h3 class="text-xl font-bold mb-6">Record Cash Out</h3>
+            <div class="space-y-4">
+                <div>
+                    <input type="text" id="expense-desc" class="premium-input" placeholder="Description">
+                </div>
+                <div>
+                    <input type="number" id="expense-amount" class="premium-input" placeholder="Amount (₱)">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">Custom Date (Optional)</label>
+                    <input type="datetime-local" id="expense-date" class="premium-input text-sm">
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button onclick="processExpense()" class="flex-1 bg-brandDanger text-white py-4 rounded-2xl font-bold">RECORD</button>
+                    <button onclick="closeModal('expense-modal')" class="px-6 py-4 rounded-2xl font-bold border border-gray-200 dark:border-darkBorder">CANCEL</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="inventory-report-modal" class="admin-only fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-4xl h-[90vh] flex flex-col rounded-3xl animate-slide-up overflow-hidden">
+            <div class="p-8 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center">
+                <h3 class="text-2xl font-bold">Stock Status Report</h3>
+                <button onclick="closeModal('inventory-report-modal')" class="p-2 hover:bg-gray-100 dark:hover:bg-darkInput rounded-full"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-8">
+                <table class="CENTER TABLE w-full text-center border-collapse">
+                    <thead>
+                        <tr class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 dark:border-darkBorder bg-gray-50 dark:bg-darkInput/50">
+                            <th class="py-4 px-2 text-left">Product Name</th>
+                            <th class="py-4 px-2">Unit Price</th>
+                            <th class="py-4 px-2">In Stock</th>
+                            <th class="py-4 px-2">Total Value</th>
+                            <th class="py-4 px-2 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-table-body" class="text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="financial-report-modal" class="admin-only fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-5xl h-[90vh] flex flex-col rounded-3xl animate-slide-up overflow-hidden">
+            <div class="p-6 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center bg-gray-50/50 dark:bg-darkBg/50">
+                <h3 class="text-2xl font-bold">Financial Reports</h3>
+                <div class="flex items-center gap-4">
+                    <input type="month" id="report-month-filter" class="premium-input py-2 text-sm max-w-[200px]" onchange="renderFinancialReport()">
+                    <button onclick="closeModal('financial-report-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="p-6 border border-gray-200 dark:border-darkBorder rounded-2xl bg-white dark:bg-darkPanel">
+                        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-100 dark:border-darkBorder pb-2">Today's Summary</h4>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-600 dark:text-gray-300">Total Sales</span>
+                            <span id="rep-daily-sales" class="font-bold text-brandSuccess">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-600 dark:text-gray-300">Total Expenses</span>
+                            <span id="rep-daily-exp" class="font-bold text-brandDanger">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100 dark:border-darkBorder">
+                            <span class="font-bold text-lg">Net Profit</span>
+                            <span id="rep-daily-net" class="font-black text-xl">₱0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="p-6 border border-gray-200 dark:border-darkBorder rounded-2xl bg-white dark:bg-darkPanel border-l-4 border-l-brandGold">
+                        <h4 id="monthly-summary-title" class="text-sm font-bold text-brandGold uppercase tracking-wider mb-4 border-b border-gray-100 dark:border-darkBorder pb-2">Selected Month Summary</h4>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-600 dark:text-gray-300">Total Sales</span>
+                            <span id="rep-monthly-sales" class="font-bold text-brandSuccess">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-gray-600 dark:text-gray-300">Total Expenses</span>
+                            <span id="rep-monthly-exp" class="font-bold text-brandDanger">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-4 pt-4 border-t border-gray-100 dark:border-darkBorder">
+                            <span class="font-bold text-lg">Net Profit</span>
+                            <span id="rep-monthly-net" class="font-black text-xl">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="text-lg font-bold mb-4">Transaction Ledger</h4>
+                <table class="CENTER TABLE w-full text-center border-collapse">
+                    <thead>
+                        <tr class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 dark:border-darkBorder bg-gray-50 dark:bg-darkInput/50">
+                            <th class="py-4 px-2 text-left">Date & Time</th>
+                            <th class="py-4 px-2">Type</th>
+                            <th class="py-4 px-2 text-left">Description</th>
+                            <th class="py-4 px-2 text-right">Amount</th>
+                            <th class="py-4 px-2 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="financial-table-body" class="text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // KIOSK SECURITY
+        // ==========================================
+        // Disable Right-Click (Context Menu)
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // Disable Developer Shortcuts
+        document.addEventListener('keydown', function(event) {
+            // F12
+            if (event.key === 'F12' || event.keyCode === 123) {
+                event.preventDefault();
+            }
+            // Ctrl + U / Cmd + U (View Source)
+            if ((event.ctrlKey || event.metaKey) && (event.key === 'u' || event.key === 'U')) {
+                event.preventDefault();
+            }
+            // Ctrl + Shift + I / J / C (Dev Tools)
+            if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key === 'I' || event.key === 'i' || event.key === 'J' || event.key === 'j' || event.key === 'C' || event.key === 'c')) {
+                event.preventDefault();
+            }
+            // Ctrl + S / Cmd + S (Save Page)
+            if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'S')) {
+                event.preventDefault();
+            }
+        });
+
+        // ==========================================
+        // FIREBASE INITIALIZATION
+        // ==========================================
+        // !! IMPORTANT !! 
+        // Replace this object with the config from your Firebase Project Settings
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYra5RUOAqvISP-k-muiTqlP_6yAqsbFI",
+            authDomain: "pks-pos.firebaseapp.com",
+            projectId: "pks-pos",
+            storageBucket: "pks-pos.firebasestorage.app",
+            messagingSenderId: "775449188616",
+            appId: "1:775449188616:web:02b5de59e8016f1e6cb4bd"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // STATE
+        let inventoryData = [];
+        let transactions = []; 
+        let cart = [];
+        let currentTendered = "0"; 
+
+        // ==========================================
+        // REAL-TIME DATABASE LISTENERS
+        // ==========================================
+        db.collection("inventory").onSnapshot((snapshot) => {
+            inventoryData = [];
+            snapshot.forEach((doc) => {
+                inventoryData.push({ id: doc.id, ...doc.data() });
+            });
+            renderInventory();
+            
+            const posModal = document.getElementById('pos-modal');
+            if(posModal && !posModal.classList.contains('hidden')) {
+                filterPOSItems();
+            }
+            
+            const invModal = document.getElementById('inventory-report-modal');
+            if(invModal && !invModal.classList.contains('hidden')) {
+                renderReport();
+            }
+        });
+
+        db.collection("transactions").orderBy("date", "desc").onSnapshot((snapshot) => {
+            transactions = [];
+            snapshot.forEach((doc) => {
+                transactions.push({ id: doc.id, ...doc.data() });
+            });
+            updateDashboardStats();
+            
+            const finModal = document.getElementById('financial-report-modal');
+            if(finModal && !finModal.classList.contains('hidden')) {
+                renderFinancialReport();
+            }
+        });
+
+        // ==========================================
+        // UI, FULL SCREEN & LOGIN LOGIC
+        // ==========================================
+        function checkLogin() {
+            const pass = document.getElementById('password-input').value;
+            const badge = document.getElementById('role-badge');
+            
+            if(pass === '15002') {
+                // Admin Login
+                document.body.setAttribute('data-role', 'admin');
+                badge.textContent = 'ADMIN';
+                badge.classList.remove('hidden');
+                closeLoginOverlay();
+            } else if (pass === '1234') {
+                // Cashier Login
+                document.body.setAttribute('data-role', 'cashier');
+                badge.textContent = 'CASHIER';
+                badge.classList.remove('hidden');
+                closeLoginOverlay();
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function closeLoginOverlay() {
+            document.getElementById('login-overlay').style.opacity = '0';
+            setTimeout(() => document.getElementById('login-overlay').style.display = 'none', 300);
+            document.getElementById('password-input').value = ''; // Clean up for security
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch((err) => {
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+                document.getElementById('fullscreen-icon').classList.replace('fa-expand', 'fa-compress');
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    document.getElementById('fullscreen-icon').classList.replace('fa-compress', 'fa-expand');
+                }
+            }
+        }
+
+        document.addEventListener('keydown', function(event) {
+            const posModal = document.getElementById('pos-modal');
+            if (!posModal.classList.contains('hidden')) {
+                if (document.activeElement.id === 'pos-search') {
+                    if (event.key === 'Enter') document.getElementById('pos-search').blur(); 
+                    return; 
+                }
+
+                const key = event.key;
+                if (/^[0-9\.]$/.test(key)) {
+                    calcInput(key);
+                    event.preventDefault();
+                } 
+                else if (key === 'Backspace' || key === 'Delete' || key.toLowerCase() === 'c') {
+                    calcInput('C');
+                    event.preventDefault();
+                } 
+                else if (key === 'Enter') {
+                    processSale();
+                    event.preventDefault();
+                }
+            }
+        });
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        function openModal(id) {
+            const modal = document.getElementById(id);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            if(id === 'pos-modal') {
+                currentTendered = "0";
+                document.getElementById('pos-search').value = ''; 
+                document.getElementById('pos-custom-date').value = ''; // Reset custom date
+                renderPOSItems();
+                updateCartUI();
+            }
+            if(id === 'expense-modal') {
+                document.getElementById('expense-date').value = ''; // Reset custom date
+            }
+            if(id === 'inventory-report-modal') renderReport();
+            if(id === 'financial-report-modal') renderFinancialReport();
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+            
+            if(id === 'pos-modal') { 
+                cart = []; 
+                currentTendered = "0";
+                document.getElementById('pos-search').value = ''; 
+                document.getElementById('pos-custom-date').value = '';
+                updateCartUI(); 
+                
+                if (document.fullscreenElement && document.exitFullscreen) {
+                    document.exitFullscreen();
+                    document.getElementById('fullscreen-icon').classList.replace('fa-compress', 'fa-expand');
+                }
+            }
+        }
+
+        function openEditModal(id) {
+            const item = inventoryData.find(i => i.id === id);
+            if (!item) return;
+
+            document.getElementById('edit-item-id').value = id;
+            document.getElementById('edit-item-name').value = item.name;
+            document.getElementById('edit-item-price').value = item.price;
+            document.getElementById('edit-item-stock').value = item.stock;
+            openModal('edit-modal');
+        }
+
+        function updateDashboardStats() {
+            const todayStr = new Date().toDateString();
+            let dailySales = 0;
+            let dailyExpenses = 0;
+
+            transactions.forEach(t => {
+                if(new Date(t.date).toDateString() === todayStr) {
+                    if(t.type === 'sale') dailySales += t.amount;
+                    if(t.type === 'expense') dailyExpenses += t.amount;
+                }
+            });
+
+            document.getElementById('stat-sales').textContent = `₱${dailySales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('stat-expenses').textContent = `₱${dailyExpenses.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            let lowStockCount = inventoryData.filter(i => i.stock < 5).length;
+            document.getElementById('stat-total-items').textContent = inventoryData.length;
+            document.getElementById('stat-low-stock').textContent = lowStockCount;
+        }
+
+        function renderInventory() {
+            const container = document.getElementById('inventory-container');
+            container.innerHTML = '';
+
+            if (inventoryData.length === 0) {
+                container.innerHTML = `<div class="col-span-full py-20 text-center opacity-50"><i class="fa-solid fa-box-open text-6xl mb-4"></i><p class="text-xl font-semibold">Inventory is empty. Add your first product to begin.</p></div>`;
+            }
+
+            inventoryData.forEach(item => {
+                const isLow = item.stock < 5;
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-6 rounded-2xl relative group animate-fade-in';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="w-12 h-12 bg-gray-100 dark:bg-darkInput rounded-xl flex items-center justify-center"><i class="fa-solid fa-box text-gray-400"></i></div>
+                        <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${isLow ? 'bg-brandDanger/10 text-brandDanger' : 'bg-brandSuccess/10 text-brandSuccess'}">${isLow ? 'Low Stock' : 'OK Stock'}</span>
+                    </div>
+                    <h4 class="font-bold text-lg mb-1">${item.name}</h4>
+                    <p class="text-2xl font-black text-brandGold mb-4">₱${Number(item.price).toLocaleString()}</p>
+                    <div class="flex items-center gap-4 text-sm font-semibold">
+                        <div class="flex-1 bg-gray-50 dark:bg-darkInput p-3 rounded-xl">
+                            <span class="text-gray-400 block text-[10px] mb-1 uppercase">Stock Level</span>
+                            <span class="text-lg">${item.stock}</span>
+                        </div>
+                        <button onclick="updateStock('${item.id}', 1)" class="p-4 bg-gray-100 dark:bg-darkInput rounded-xl hover:bg-brandGold hover:text-white transition-all"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <button onclick="openEditModal('${item.id}')" class="absolute top-4 right-14 opacity-0 group-hover:opacity-100 p-2 text-brandGold hover:text-yellow-600 transition-colors" title="Edit Item"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="deleteItem('${item.id}')" class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 text-brandDanger hover:text-red-700 transition-colors" title="Delete Item"><i class="fa-solid fa-trash"></i></button>
+                `;
+                container.appendChild(card);
+            });
+            updateDashboardStats();
+        }
+
+        // ==========================================
+        // DATABASE WRITE OPERATIONS (INVENTORY)
+        // ==========================================
+        function addItem() {
+            const name = document.getElementById('new-item-name').value;
+            const price = document.getElementById('new-item-price').value;
+            const stock = document.getElementById('new-item-stock').value || 0;
+
+            if(!name || !price) return alert("Fill required fields");
+            
+            db.collection("inventory").add({
+                name: name,
+                price: parseFloat(price),
+                stock: parseInt(stock)
+            }).then(() => {
+                closeModal('add-modal');
+                document.getElementById('new-item-name').value = '';
+                document.getElementById('new-item-price').value = '';
+                document.getElementById('new-item-stock').value = '';
+            }).catch(error => alert("Error adding document: " + error));
+        }
+
+        function saveEditItem() {
+            const id = document.getElementById('edit-item-id').value;
+            const name = document.getElementById('edit-item-name').value;
+            const price = parseFloat(document.getElementById('edit-item-price').value);
+            const stock = parseInt(document.getElementById('edit-item-stock').value);
+
+            if(!name || isNaN(price)) return alert("Fill required fields");
+
+            db.collection("inventory").doc(id).update({
+                name: name,
+                price: price,
+                stock: stock
+            }).then(() => {
+                closeModal('edit-modal');
+            }).catch(error => alert("Error updating document: " + error));
+        }
+
+        function deleteItem(id) {
+            if(confirm('Delete item?')) { 
+                db.collection("inventory").doc(id).delete()
+                  .catch(error => alert("Error removing document: " + error));
+            }
+        }
+
+        function updateStock(id, amount) {
+            db.collection("inventory").doc(id).update({
+                stock: firebase.firestore.FieldValue.increment(amount)
+            }).catch(error => alert("Error updating stock: " + error));
+        }
+
+        // ==========================================
+        // POS LOGIC 
+        // ==========================================
+        function filterPOSItems() {
+            const query = document.getElementById('pos-search').value.toLowerCase();
+            renderPOSItems(query);
+        }
+
+        function renderPOSItems(query = '') {
+            const list = document.getElementById('pos-item-list');
+            list.innerHTML = '';
+            
+            const filteredData = inventoryData.filter(item => item.name.toLowerCase().includes(query));
+
+            if (filteredData.length === 0) {
+                list.innerHTML = `<div class="col-span-full py-10 text-center opacity-50"><p class="text-lg font-semibold">No items found.</p></div>`;
+                return;
+            }
+
+            filteredData.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'glass-panel p-4 rounded-2xl text-left hover:border-brandGold flex flex-col justify-between items-start transition-all';
+                btn.onclick = () => addToCart(item);
+                btn.innerHTML = `
+                    <div class="w-full mb-2">
+                        <p class="font-bold text-sm truncate">${item.name}</p>
+                        <p class="text-xs text-brandGold font-bold">₱${item.price.toLocaleString()}</p>
+                    </div>
+                    <div class="w-full flex justify-between items-center mt-2 pt-2 border-t border-gray-100 dark:border-darkBorder">
+                        <span class="text-[10px] text-gray-500 uppercase font-bold">In Stock</span>
+                        <span class="text-xs font-bold ${item.stock <= 0 ? 'text-brandDanger' : ''}">${item.stock}</span>
+                    </div>
+                `;
+                list.appendChild(btn);
+            });
+        }
+
+        function addToCart(item) {
+            if(item.stock <= 0) return alert("Out of stock!");
+            const existing = cart.find(c => c.id === item.id);
+            if(existing) { 
+                if(existing.qty >= item.stock) return alert("Cannot exceed available stock.");
+                existing.qty++; 
+            } else { 
+                cart.push({ ...item, qty: 1 }); 
+            }
+            updateCartUI();
+        }
+
+        function changeCartQty(id, delta) {
+            const cartItem = cart.find(c => c.id === id);
+            if (!cartItem) return;
+            const inventoryItem = inventoryData.find(i => i.id === id);
+
+            if (delta > 0 && cartItem.qty >= inventoryItem.stock) return alert("Cannot exceed available stock.");
+
+            cartItem.qty += delta;
+            if (cartItem.qty <= 0) cart = cart.filter(c => c.id !== id);
+            
+            updateCartUI();
+        }
+
+        function setBulkQty(id) {
+            const cartItem = cart.find(c => c.id === id);
+            if (!cartItem) return;
+            const inventoryItem = inventoryData.find(i => i.id === id);
+
+            let input = prompt(`Enter quantity for ${cartItem.name} (Available Stock: ${inventoryItem.stock}):`, cartItem.qty);
+            if (input === null || input === "") return;
+
+            let newQty = parseInt(input);
+            if (isNaN(newQty) || newQty < 0) {
+                return alert("Please enter a valid positive number.");
+            }
+
+            if (newQty > inventoryItem.stock) {
+                return alert(`Cannot exceed available stock. Maximum is ${inventoryItem.stock}.`);
+            }
+
+            if (newQty === 0) {
+                cart = cart.filter(c => c.id !== id);
+            } else {
+                cartItem.qty = newQty;
+            }
+            
+            updateCartUI();
+        }
+
+        function updateCartUI() {
+            const container = document.getElementById('cart-items');
+            container.innerHTML = '';
+            
+            if (cart.length === 0) container.innerHTML = '<div class="text-center p-4 text-gray-400 text-sm font-bold">Cart is empty</div>';
+
+            cart.forEach(item => {
+                container.innerHTML += `
+                <div class="flex justify-between items-center p-3 bg-white dark:bg-darkPanel rounded-xl border border-gray-100 dark:border-darkBorder shadow-sm">
+                    <div class="flex-1 truncate pr-2">
+                        <div class="font-bold text-sm truncate">${item.name}</div>
+                        <div class="text-xs text-brandGold font-bold">₱${(item.price * item.qty).toLocaleString()}</div>
+                    </div>
+                    <div class="flex items-center gap-2 bg-gray-50 dark:bg-darkInput rounded-lg p-1">
+                        <button onclick="changeCartQty('${item.id}', -1)" class="w-8 h-8 bg-white dark:bg-darkPanel rounded shadow-sm flex items-center justify-center font-bold text-gray-500 hover:text-brandDanger transition-colors">-</button>
+                        <button onclick="setBulkQty('${item.id}')" class="w-8 text-center text-sm font-bold hover:bg-gray-200 dark:hover:bg-darkBg rounded py-1 transition-colors" title="Set Bulk Quantity">${item.qty}</button>
+                        <button onclick="changeCartQty('${item.id}', 1)" class="w-8 h-8 bg-white dark:bg-darkPanel rounded shadow-sm flex items-center justify-center font-bold text-gray-500 hover:text-brandSuccess transition-colors">+</button>
+                    </div>
+                </div>`;
+            });
+            updateCheckoutUI();
+        }
+
+        function calcInput(val) {
+            if (val === 'C') currentTendered = "0";
+            else if (val === '.') { if (!currentTendered.includes('.')) currentTendered += '.'; } 
+            else {
+                if (currentTendered === "0") currentTendered = val;
+                else currentTendered += val;
+            }
+            updateCheckoutUI();
+        }
+
+        function updateCheckoutUI() {
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let tendered = parseFloat(currentTendered) || 0;
+            let change = tendered - total;
+
+            document.getElementById('cart-total').textContent = `₱${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('pos-tendered').textContent = `₱${tendered.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            const changeEl = document.getElementById('pos-change');
+            if (cart.length === 0) {
+                changeEl.textContent = `₱0.00`;
+                changeEl.className = "text-xl font-bold text-gray-400";
+            } else if (change < 0) {
+                changeEl.textContent = `Short ₱${Math.abs(change).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                changeEl.className = "text-xl font-bold text-brandDanger";
+            } else {
+                changeEl.textContent = `₱${change.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                changeEl.className = "text-xl font-bold text-brandSuccess";
+            }
+        }
+
+        function processSale() {
+            if(cart.length === 0) return alert("Cart is empty.");
+            
+            let total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+            let tendered = parseFloat(currentTendered) || 0;
+
+            if (tendered < total) return alert("Insufficient cash tendered.");
+
+            let batch = db.batch();
+
+            // Deduct Stock
+            cart.forEach(c => {
+                let itemRef = db.collection("inventory").doc(c.id);
+                batch.update(itemRef, {
+                    stock: firebase.firestore.FieldValue.increment(-c.qty)
+                });
+            });
+            
+            // Handle Custom Backdating Date
+            let customDateRaw = document.getElementById('pos-custom-date').value;
+            let finalDate = customDateRaw ? new Date(customDateRaw).toISOString() : new Date().toISOString();
+
+            // Record Sale Transaction
+            let txRef = db.collection("transactions").doc();
+            batch.set(txRef, {
+                date: finalDate,
+                type: 'sale',
+                description: `POS Checkout (${cart.length} items)`,
+                amount: total
+            });
+
+            // Commit Batch
+            batch.commit().then(() => {
+                let change = tendered - total;
+                alert(`Sale Finalized Successfully!\n\nTotal: ₱${total.toFixed(2)}\nTendered: ₱${tendered.toFixed(2)}\nChange: ₱${change.toFixed(2)}`);
+                
+                // Clear cart and date without closing POS modal
+                cart = [];
+                currentTendered = "0";
+                document.getElementById('pos-custom-date').value = '';
+                updateCartUI();
+                
+            }).catch(error => alert("Error processing sale: " + error));
+        }
+
+        // ==========================================
+        // EXPENSE & FINANCIAL REPORTING
+        // ==========================================
+        function processExpense() {
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            const desc = document.getElementById('expense-desc').value || 'Miscellaneous Expense';
+            
+            if(!amount) return;
+            
+            // Handle Custom Backdating Date
+            let customDateRaw = document.getElementById('expense-date').value;
+            let finalDate = customDateRaw ? new Date(customDateRaw).toISOString() : new Date().toISOString();
+
+            db.collection("transactions").add({
+                date: finalDate,
+                type: 'expense',
+                description: desc,
+                amount: amount
+            }).then(() => {
+                closeModal('expense-modal');
+                document.getElementById('expense-amount').value = '';
+                document.getElementById('expense-desc').value = '';
+                document.getElementById('expense-date').value = '';
+            }).catch(error => alert("Error recording expense: " + error));
+        }
+
+        function deleteTransaction(id) {
+            if(confirm("Are you sure you want to void this transaction?\n\nThis will permanently delete it and adjust your total revenue calculations. This cannot be undone.")) {
+                db.collection("transactions").doc(id).delete()
+                  .catch(error => alert("Error deleting transaction: " + error));
+            }
+        }
+
+        function renderReport() {
+            const tbody = document.getElementById('report-table-body');
+            tbody.innerHTML = '';
+            inventoryData.forEach(item => {
+                tbody.innerHTML += `
+                    <tr class="border-b dark:border-darkBorder hover:bg-gray-50 dark:hover:bg-darkInput/30 transition-colors">
+                        <td class="py-4 px-2 font-bold text-left">${item.name}</td>
+                        <td class="py-4 px-2">₱${item.price.toLocaleString()}</td>
+                        <td class="py-4 px-2">${item.stock}</td>
+                        <td class="py-4 px-2 font-bold text-brandGold">₱${(item.price * item.stock).toLocaleString()}</td>
+                        <td class="py-4 px-2 text-right"><span class="px-2 py-1 rounded text-[10px] font-bold ${item.stock < 5 ? 'bg-brandDanger text-white' : 'bg-brandSuccess/20 text-brandSuccess'}">${item.stock < 5 ? 'LOW' : 'OK'}</span></td>
+                    </tr>`;
+            });
+        }
+
+        function renderFinancialReport() {
+            const todayStr = new Date().toDateString();
+            
+            // Initialize Month Filter if empty
+            const filterEl = document.getElementById('report-month-filter');
+            if (!filterEl.value) {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                filterEl.value = `${year}-${month}`; // Format YYYY-MM
+            }
+            
+            const selectedMonthStr = filterEl.value; // e.g. "2024-02"
+            const [selYear, selMonth] = selectedMonthStr.split('-');
+
+            // Update block title
+            document.getElementById('monthly-summary-title').textContent = `${selYear} / ${selMonth} Summary`;
+            
+            let dailyS = 0, dailyE = 0;
+            let monthlyS = 0, monthlyE = 0;
+
+            const tbody = document.getElementById('financial-table-body');
+            tbody.innerHTML = '';
+            
+            let filteredTransactions = [];
+
+            transactions.forEach(t => {
+                const tDate = new Date(t.date);
+                
+                // Today's Calculations (Always reflects the actual current day)
+                if (tDate.toDateString() === todayStr) {
+                    if (t.type === 'sale') dailyS += t.amount;
+                    if (t.type === 'expense') dailyE += t.amount;
+                }
+                
+                // Selected Month Calculations
+                const tMonth = String(tDate.getMonth() + 1).padStart(2, '0');
+                const tYear = String(tDate.getFullYear());
+                const tYearMonth = `${tYear}-${tMonth}`;
+                
+                if (tYearMonth === selectedMonthStr) {
+                    if (t.type === 'sale') monthlyS += t.amount;
+                    if (t.type === 'expense') monthlyE += t.amount;
+                    filteredTransactions.push(t); // Only show ledger for selected month
+                }
+            });
+
+            if (filteredTransactions.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-gray-400">No transactions found for this selected month.</td></tr>`;
+            }
+
+            // Render only filtered transactions to the ledger
+            filteredTransactions.forEach(t => {
+                const tDate = new Date(t.date);
+                tbody.innerHTML += `
+                    <tr class="border-b dark:border-darkBorder hover:bg-gray-50 dark:hover:bg-darkInput/30 transition-colors">
+                        <td class="py-4 px-2 text-left text-xs">${tDate.toLocaleDateString()} <span class="text-gray-400">${tDate.toLocaleTimeString()}</span></td>
+                        <td class="py-4 px-2">
+                            <span class="px-2 py-1 rounded text-[10px] font-bold uppercase ${t.type === 'sale' ? 'bg-brandSuccess/20 text-brandSuccess' : 'bg-brandDanger/20 text-brandDanger'}">${t.type}</span>
+                        </td>
+                        <td class="py-4 px-2 font-semibold text-left">${t.description}</td>
+                        <td class="py-4 px-2 text-right font-bold ${t.type === 'sale' ? 'text-brandSuccess' : 'text-brandDanger'}">
+                            ${t.type === 'sale' ? '+' : '-'}₱${t.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        </td>
+                        <td class="py-4 px-2 text-center">
+                            <button onclick="deleteTransaction('${t.id}')" class="text-brandDanger hover:text-red-700 p-1" title="Void Transaction"><i class="fa-solid fa-ban"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Update UI Counters (Today)
+            document.getElementById('rep-daily-sales').textContent = `₱${dailyS.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('rep-daily-exp').textContent = `₱${dailyE.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            const netDaily = dailyS - dailyE;
+            const netDailyEl = document.getElementById('rep-daily-net');
+            netDailyEl.textContent = `₱${netDaily.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            netDailyEl.className = `font-black text-xl ${netDaily < 0 ? 'text-brandDanger' : (netDaily > 0 ? 'text-brandSuccess' : '')}`;
+
+            // Update UI Counters (Selected Month)
+            document.getElementById('rep-monthly-sales').textContent = `₱${monthlyS.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('rep-monthly-exp').textContent = `₱${monthlyE.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            const netMonthly = monthlyS - monthlyE;
+            const netMonthlyEl = document.getElementById('rep-monthly-net');
+            netMonthlyEl.textContent = `₱${netMonthly.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            netMonthlyEl.className = `font-black text-xl ${netMonthly < 0 ? 'text-brandDanger' : (netMonthly > 0 ? 'text-brandSuccess' : '')}`;
+        }
+    </script>
+</body>
+</html>
