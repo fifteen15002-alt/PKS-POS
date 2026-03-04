@@ -141,6 +141,9 @@
             <span id="role-badge" class="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-gray-200 text-gray-600 dark:bg-darkInput dark:text-gray-400 hidden"></span>
         </div>
         <div class="flex items-center gap-2">
+            <button onclick="openModal('stock-history-modal')" class="admin-only px-3 py-2 text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-all flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left"></i> STOCK HISTORY
+            </button>
             <button onclick="openModal('financial-report-modal')" class="admin-only px-3 py-2 text-xs font-semibold bg-brandSuccess/10 text-brandSuccess border border-brandSuccess/30 rounded-lg hover:bg-brandSuccess/20 transition-all flex items-center gap-2">
                 <i class="fa-solid fa-chart-pie"></i> FINANCIALS
             </button>
@@ -154,7 +157,19 @@
     </header>
 
     <main class="flex-1 overflow-y-auto p-6 md:p-10 max-w-7xl mx-auto w-full">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10 animate-slide-up admin-only">
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-10 animate-slide-up admin-only">
+            
+            <div class="glass-panel p-6 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cash on Hand</p>
+                    <div class="w-10 h-10 bg-brandGold/10 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-wallet text-brandGold"></i>
+                    </div>
+                </div>
+                <h3 id="stat-cash-on-hand" class="text-2xl font-bold">₱0.00</h3>
+                <p class="text-xs text-brandGold mt-2 font-semibold">Total historical balance</p>
+            </div>
+
             <div class="glass-panel p-6 rounded-2xl">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Sales (Today)</p>
@@ -163,14 +178,14 @@
                     </div>
                 </div>
                 <h3 id="stat-sales" class="text-2xl font-bold">₱0.00</h3>
-                <p class="text-xs text-brandSuccess mt-2 font-semibold">Tracked automatically via POS</p>
+                <p class="text-xs text-brandSuccess mt-2 font-semibold">Tracked automatically</p>
             </div>
             
             <div class="glass-panel p-6 rounded-2xl">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Inventory Items</p>
-                    <div class="w-10 h-10 bg-brandGold/10 rounded-lg flex items-center justify-center">
-                        <i class="fa-solid fa-boxes-stacked text-brandGold"></i>
+                    <div class="w-10 h-10 bg-gray-200 dark:bg-darkInput rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-boxes-stacked text-gray-500"></i>
                     </div>
                 </div>
                 <h3 id="stat-total-items" class="text-2xl font-bold">0</h3>
@@ -233,9 +248,15 @@
                 <h2 class="text-2xl font-bold">Catalog & Inventory</h2>
                 <p class="text-sm text-gray-500">Manage your product offerings</p>
             </div>
-            <button onclick="openModal('add-modal')" class="bg-lightText dark:bg-white text-white dark:text-darkBg px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all flex items-center gap-2">
-                <i class="fa-solid fa-plus"></i> ADD PRODUCT
-            </button>
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="relative flex-1 md:w-64">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="catalog-search" oninput="filterCatalog()" class="premium-input pl-10 py-2.5 text-sm" placeholder="Search catalog...">
+                </div>
+                <button onclick="openModal('add-modal')" class="bg-lightText dark:bg-white text-white dark:text-darkBg px-6 py-3 rounded-xl font-bold hover:opacity-90 transition-all flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-plus"></i> ADD PRODUCT
+                </button>
+            </div>
         </div>
 
         <div id="inventory-container" class="admin-only grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12 animate-slide-up" style="animation-delay: 0.3s;">
@@ -254,6 +275,29 @@
             <span>Version 5.0.0 (RBAC Security)</span>
         </div>
     </footer>
+
+    <div id="stock-history-modal" class="admin-only fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-4xl h-[90vh] flex flex-col rounded-3xl animate-slide-up overflow-hidden">
+            <div class="p-8 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center bg-gray-50/50 dark:bg-darkBg/50">
+                <h3 class="text-2xl font-bold">Inventory IN/OUT History</h3>
+                <button onclick="closeModal('stock-history-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-8">
+                <table class="w-full text-center border-collapse">
+                    <thead>
+                        <tr class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 dark:border-darkBorder bg-gray-50 dark:bg-darkInput/50">
+                            <th class="py-4 px-2 text-left">Date & Time</th>
+                            <th class="py-4 px-2 text-left">Product Name</th>
+                            <th class="py-4 px-2">Type</th>
+                            <th class="py-4 px-2">Qty Change</th>
+                            <th class="py-4 px-2 text-right">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stock-history-body" class="text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <div id="add-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
         <div class="glass-panel w-full max-w-md p-8 rounded-3xl animate-slide-up">
@@ -418,9 +462,9 @@
 
     <div id="inventory-report-modal" class="admin-only fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
         <div class="glass-panel w-full max-w-4xl h-[90vh] flex flex-col rounded-3xl animate-slide-up overflow-hidden">
-            <div class="p-8 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center">
+            <div class="p-8 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center bg-gray-50/50 dark:bg-darkBg/50">
                 <h3 class="text-2xl font-bold">Stock Status Report</h3>
-                <button onclick="closeModal('inventory-report-modal')" class="p-2 hover:bg-gray-100 dark:hover:bg-darkInput rounded-full"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="closeModal('inventory-report-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="flex-1 overflow-y-auto p-8">
                 <table class="CENTER TABLE w-full text-center border-collapse">
@@ -445,7 +489,7 @@
                 <h3 class="text-2xl font-bold">Financial Reports</h3>
                 <div class="flex items-center gap-4">
                     <input type="month" id="report-month-filter" class="premium-input py-2 text-sm max-w-[200px]" onchange="renderFinancialReport()">
-                    <button onclick="closeModal('financial-report-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full"><i class="fa-solid fa-xmark"></i></button>
+                    <button onclick="closeModal('financial-report-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
                 </div>
             </div>
             
@@ -524,6 +568,7 @@
 
         let inventoryData = [];
         let transactions = []; 
+        let stockHistoryData = [];
         let cart = [];
         let currentTendered = "0"; 
 
@@ -532,7 +577,7 @@
             snapshot.forEach((doc) => {
                 inventoryData.push({ id: doc.id, ...doc.data() });
             });
-            renderInventory();
+            renderInventory(document.getElementById('catalog-search') ? document.getElementById('catalog-search').value : '');
             if(!document.getElementById('pos-modal').classList.contains('hidden')) filterPOSItems();
             if(!document.getElementById('inventory-report-modal').classList.contains('hidden')) renderReport();
         });
@@ -545,6 +590,20 @@
             updateDashboardStats();
             if(!document.getElementById('financial-report-modal').classList.contains('hidden')) renderFinancialReport();
         });
+
+        db.collection("stock_history").orderBy("date", "desc").onSnapshot((snapshot) => {
+            stockHistoryData = [];
+            snapshot.forEach((doc) => {
+                stockHistoryData.push({ id: doc.id, ...doc.data() });
+            });
+            if(!document.getElementById('stock-history-modal').classList.contains('hidden')) renderStockHistory();
+        });
+
+        function logStock(itemId, itemName, change, type, reason) {
+            db.collection("stock_history").add({
+                itemId, itemName, change: Math.abs(change), type, reason, date: new Date().toISOString()
+            });
+        }
 
         function checkLogin() {
             const pass = document.getElementById('password-input').value;
@@ -597,6 +656,7 @@
             if(id === 'pos-modal') { currentTendered = "0"; document.getElementById('pos-search').value = ''; renderPOSItems(); updateCartUI(); }
             if(id === 'inventory-report-modal') renderReport();
             if(id === 'financial-report-modal') renderFinancialReport();
+            if(id === 'stock-history-modal') renderStockHistory();
         }
 
         function closeModal(id) {
@@ -617,8 +677,11 @@
 
         function updateDashboardStats() {
             const todayStr = new Date().toDateString();
-            let ds = 0, de = 0;
+            let ds = 0, de = 0, totalSales = 0, totalExpenses = 0;
             transactions.forEach(t => {
+                if(t.type === 'sale') totalSales += t.amount;
+                if(t.type === 'expense') totalExpenses += t.amount;
+
                 if(new Date(t.date).toDateString() === todayStr) {
                     if(t.type === 'sale') ds += t.amount;
                     if(t.type === 'expense') de += t.amount;
@@ -626,18 +689,27 @@
             });
             document.getElementById('stat-sales').textContent = `₱${ds.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('stat-expenses').textContent = `₱${de.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('stat-cash-on-hand').textContent = `₱${(totalSales - totalExpenses).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             document.getElementById('stat-total-items').textContent = inventoryData.length;
             document.getElementById('stat-low-stock').textContent = inventoryData.filter(i => i.stock < 5).length;
         }
 
-        function renderInventory() {
+        function filterCatalog() {
+            renderInventory(document.getElementById('catalog-search').value);
+        }
+
+        function renderInventory(q = '') {
             const container = document.getElementById('inventory-container');
             container.innerHTML = '';
-            if (inventoryData.length === 0) {
-                container.innerHTML = `<div class="col-span-full py-20 text-center opacity-50"><i class="fa-solid fa-box-open text-6xl mb-4"></i><p>Empty</p></div>`;
+            
+            const filteredData = inventoryData.filter(i => i.name.toLowerCase().includes(q.toLowerCase()));
+            
+            if (filteredData.length === 0) {
+                container.innerHTML = `<div class="col-span-full py-20 text-center opacity-50"><i class="fa-solid fa-box-open text-6xl mb-4"></i><p>No products found.</p></div>`;
                 return;
             }
-            inventoryData.forEach(item => {
+            
+            filteredData.forEach(item => {
                 const card = document.createElement('div');
                 card.className = 'glass-panel p-6 rounded-2xl relative group animate-fade-in';
                 const hasDiscount = item.discountPrice && item.discountPrice > 0;
@@ -666,23 +738,42 @@
             const disc = parseFloat(document.getElementById('new-item-discount-price').value) || 0;
             const stock = parseInt(document.getElementById('new-item-stock').value) || 0;
             if(!name || isNaN(price)) return alert("Fill fields");
-            db.collection("inventory").add({ name, price, discountPrice: disc, stock }).then(() => {
+            
+            db.collection("inventory").add({ name, price, discountPrice: disc, stock }).then((docRef) => {
+                if(stock > 0) logStock(docRef.id, name, stock, 'IN', 'Initial Stock');
                 closeModal('add-modal');
-                document.getElementById('new-item-name').value = ''; document.getElementById('new-item-price').value = ''; document.getElementById('new-item-discount-price').value = '';
+                document.getElementById('new-item-name').value = ''; 
+                document.getElementById('new-item-price').value = ''; 
+                document.getElementById('new-item-discount-price').value = '';
+                document.getElementById('new-item-stock').value = '';
             });
         }
 
         function saveEditItem() {
             const id = document.getElementById('edit-item-id').value;
+            const oldItem = inventoryData.find(i => i.id === id);
             const name = document.getElementById('edit-item-name').value;
             const price = parseFloat(document.getElementById('edit-item-price').value);
             const disc = parseFloat(document.getElementById('edit-item-discount-price').value) || 0;
             const stock = parseInt(document.getElementById('edit-item-stock').value);
+            
+            if (oldItem && oldItem.stock !== stock) {
+                const diff = stock - oldItem.stock;
+                logStock(id, name, diff, diff > 0 ? 'IN' : 'OUT', 'Manual Edit Adjustment');
+            }
+
             db.collection("inventory").doc(id).update({ name, price, discountPrice: disc, stock }).then(() => closeModal('edit-modal'));
         }
 
-        function deleteItem(id) { if(confirm('Delete?')) db.collection("inventory").doc(id).delete(); }
-        function updateStock(id, amount) { db.collection("inventory").doc(id).update({ stock: firebase.firestore.FieldValue.increment(amount) }); }
+        function deleteItem(id) { 
+            if(confirm('Delete?')) db.collection("inventory").doc(id).delete(); 
+        }
+        
+        function updateStock(id, amount) { 
+            const item = inventoryData.find(i => i.id === id);
+            if(item) logStock(id, item.name, amount, amount > 0 ? 'IN' : 'OUT', 'Quick Adjustment');
+            db.collection("inventory").doc(id).update({ stock: firebase.firestore.FieldValue.increment(amount) }); 
+        }
 
         function filterPOSItems() { renderPOSItems(document.getElementById('pos-search').value.toLowerCase()); }
 
@@ -782,14 +873,38 @@
 
         function processSale() {
             let total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-            if(!cart.length || (parseFloat(currentTendered) < total)) return alert("Error");
+            if(!cart.length || (parseFloat(currentTendered) < total)) return alert("Error: Insufficient funds or empty cart.");
+            
             let batch = db.batch();
             let deductions = {};
-            cart.forEach(c => { deductions[c.id] = (deductions[c.id] || 0) + c.qty; });
-            for(let id in deductions) { batch.update(db.collection("inventory").doc(id), { stock: firebase.firestore.FieldValue.increment(-deductions[id]) }); }
+            
+            // Collect deductions and build the item list for description
+            let itemsSold = cart.map(c => `${c.qty}x ${c.name}`).join(', ');
+            
+            cart.forEach(c => { 
+                deductions[c.id] = (deductions[c.id] || 0) + c.qty; 
+                // Log stock reduction for history
+                logStock(c.id, c.name, c.qty, 'OUT', 'POS Sale');
+            });
+            
+            for(let id in deductions) { 
+                batch.update(db.collection("inventory").doc(id), { stock: firebase.firestore.FieldValue.increment(-deductions[id]) }); 
+            }
+            
             let customDate = document.getElementById('pos-custom-date').value;
-            batch.set(db.collection("transactions").doc(), { date: customDate ? new Date(customDate).toISOString() : new Date().toISOString(), type: 'sale', amount: total, description: 'POS Sale' });
-            batch.commit().then(() => { alert("Done"); cart = []; currentTendered = "0"; updateCartUI(); });
+            batch.set(db.collection("transactions").doc(), { 
+                date: customDate ? new Date(customDate).toISOString() : new Date().toISOString(), 
+                type: 'sale', 
+                amount: total, 
+                description: `Sale: ${itemsSold}` 
+            });
+            
+            batch.commit().then(() => { 
+                alert("Transaction Completed"); 
+                cart = []; 
+                currentTendered = "0"; 
+                updateCartUI(); 
+            });
         }
 
         function processExpense() {
@@ -797,15 +912,46 @@
             const desc = document.getElementById('expense-desc').value || 'Expense';
             if(!amt) return;
             let date = document.getElementById('expense-date').value;
-            db.collection("transactions").add({ date: date ? new Date(date).toISOString() : new Date().toISOString(), type: 'expense', amount: amt, description: desc }).then(() => { closeModal('expense-modal'); });
+            db.collection("transactions").add({ date: date ? new Date(date).toISOString() : new Date().toISOString(), type: 'expense', amount: amt, description: desc }).then(() => { 
+                closeModal('expense-modal'); 
+                document.getElementById('expense-amount').value = '';
+                document.getElementById('expense-desc').value = '';
+                document.getElementById('expense-date').value = '';
+            });
         }
 
-        function deleteTransaction(id) { if(confirm("Void?")) db.collection("transactions").doc(id).delete(); }
+        function deleteTransaction(id) { 
+            if(confirm("Void transaction?")) db.collection("transactions").doc(id).delete(); 
+        }
 
         function renderReport() {
             const tbody = document.getElementById('report-table-body'); tbody.innerHTML = '';
             inventoryData.forEach(item => {
                 tbody.innerHTML += `<tr class="border-b dark:border-darkBorder"><td class="py-4 px-2 text-left">${item.name}</td><td>₱${item.price.toLocaleString()}</td><td>${item.stock}</td><td class="font-bold text-brandGold">₱${(item.price * item.stock).toLocaleString()}</td><td class="text-right">${item.stock < 5 ? 'LOW' : 'OK'}</td></tr>`;
+            });
+        }
+
+        function renderStockHistory() {
+            const tbody = document.getElementById('stock-history-body'); tbody.innerHTML = '';
+            
+            if (stockHistoryData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-500">No stock history recorded yet.</td></tr>`;
+                return;
+            }
+
+            stockHistoryData.forEach(log => {
+                const td = new Date(log.date).toLocaleString();
+                const typeColor = log.type === 'IN' ? 'text-brandSuccess' : 'text-brandDanger';
+                const sign = log.type === 'IN' ? '+' : '-';
+                tbody.innerHTML += `
+                    <tr class="border-b dark:border-darkBorder">
+                        <td class="py-4 px-2 text-left text-xs">${td}</td>
+                        <td class="py-4 px-2 text-left font-semibold">${log.itemName}</td>
+                        <td class="py-4 px-2 font-bold ${typeColor}">${log.type}</td>
+                        <td class="py-4 px-2 font-bold">${sign}${log.change}</td>
+                        <td class="py-4 px-2 text-right text-xs text-gray-500">${log.reason}</td>
+                    </tr>
+                `;
             });
         }
 
@@ -821,15 +967,15 @@
                 if(td.toDateString() === todayStr) { if(t.type === 'sale') ds += t.amount; else de += t.amount; }
                 if(t.date.slice(0, 7) === selMonth) {
                     if(t.type === 'sale') ms += t.amount; else me += t.amount;
-                    tbody.innerHTML += `<tr class="border-b dark:border-darkBorder"><td class="py-4 px-2 text-left text-xs">${td.toLocaleString()}</td><td>${t.type}</td><td class="text-left">${t.description}</td><td class="text-right ${t.type === 'sale' ? 'text-brandSuccess' : 'text-brandDanger'}">₱${t.amount.toLocaleString()}</td><td><button onclick="deleteTransaction('${t.id}')"><i class="fa-solid fa-ban"></i></button></td></tr>`;
+                    tbody.innerHTML += `<tr class="border-b dark:border-darkBorder"><td class="py-4 px-2 text-left text-xs">${td.toLocaleString()}</td><td>${t.type.toUpperCase()}</td><td class="text-left text-xs max-w-xs truncate" title="${t.description}">${t.description}</td><td class="text-right ${t.type === 'sale' ? 'text-brandSuccess' : 'text-brandDanger'} font-bold">₱${t.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td><td><button onclick="deleteTransaction('${t.id}')" class="text-gray-400 hover:text-brandDanger transition-colors"><i class="fa-solid fa-ban"></i></button></td></tr>`;
                 }
             });
-            document.getElementById('rep-daily-sales').textContent = `₱${ds.toLocaleString()}`;
-            document.getElementById('rep-daily-exp').textContent = `₱${de.toLocaleString()}`;
-            document.getElementById('rep-daily-net').textContent = `₱${(ds-de).toLocaleString()}`;
-            document.getElementById('rep-monthly-sales').textContent = `₱${ms.toLocaleString()}`;
-            document.getElementById('rep-monthly-exp').textContent = `₱${me.toLocaleString()}`;
-            document.getElementById('rep-monthly-net').textContent = `₱${(ms-me).toLocaleString()}`;
+            document.getElementById('rep-daily-sales').textContent = `₱${ds.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('rep-daily-exp').textContent = `₱${de.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('rep-daily-net').textContent = `₱${(ds-de).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('rep-monthly-sales').textContent = `₱${ms.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('rep-monthly-exp').textContent = `₱${me.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            document.getElementById('rep-monthly-net').textContent = `₱${(ms-me).toLocaleString(undefined, {minimumFractionDigits: 2})}`;
         }
     </script>
 </body>
