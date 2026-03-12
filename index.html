@@ -318,7 +318,7 @@
     </footer>
 
     <div id="stock-history-modal" class="admin-only fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] hidden items-center justify-center p-4">
-        <div class="glass-panel w-full max-w-4xl h-[90vh] flex flex-col rounded-3xl animate-slide-up overflow-hidden">
+        <div class="glass-panel w-full max-w-5xl h-[90vh] flex flex-col rounded-3xl animate-slide-up overflow-hidden">
             <div class="p-8 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center bg-gray-50/50 dark:bg-darkBg/50">
                 <h3 class="text-2xl font-bold">Inventory IN/OUT History</h3>
                 <button onclick="closeModal('stock-history-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
@@ -331,7 +331,8 @@
                             <th class="py-4 px-2 text-left">Product Name</th>
                             <th class="py-4 px-2">Type</th>
                             <th class="py-4 px-2">Qty Change</th>
-                            <th class="py-4 px-2 text-right">Reason</th>
+                            <th class="py-4 px-2 text-left">Reason</th>
+                            <th class="py-4 px-2 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody id="stock-history-body" class="text-sm"></tbody>
@@ -508,7 +509,7 @@
                 <button onclick="closeModal('inventory-report-modal')" class="p-2 hover:bg-gray-200 dark:hover:bg-darkInput rounded-full transition-colors"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="flex-1 overflow-y-auto p-8">
-                <table class="w-full text-center border-collapse">
+                <table class="CENTER TABLE w-full text-center border-collapse">
                     <thead>
                         <tr class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 dark:border-darkBorder bg-gray-50 dark:bg-darkInput/50">
                             <th class="py-4 px-2 text-left">Product Name</th>
@@ -653,6 +654,20 @@
             db.collection("stock_history").add({
                 itemId, itemName, change: Math.abs(change), type, reason, date: new Date().toISOString()
             });
+        }
+
+        // New functions to edit and delete stock history
+        function editStockHistory(id, oldReason) {
+            const newReason = prompt("Enter new reason for this adjustment:", oldReason);
+            if (newReason !== null && newReason.trim() !== "") {
+                db.collection("stock_history").doc(id).update({ reason: newReason.trim() });
+            }
+        }
+
+        function deleteStockHistory(id) {
+            if (confirm("Are you sure you want to permanently delete this history log?")) {
+                db.collection("stock_history").doc(id).delete();
+            }
         }
 
         function checkLogin() {
@@ -991,7 +1006,7 @@
             const tbody = document.getElementById('stock-history-body'); tbody.innerHTML = '';
             
             if (stockHistoryData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-500">No stock history recorded yet.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-gray-500">No stock history recorded yet.</td></tr>`;
                 return;
             }
 
@@ -1000,12 +1015,16 @@
                 const typeColor = log.type === 'IN' ? 'text-brandSuccess' : 'text-brandDanger';
                 const sign = log.type === 'IN' ? '+' : '-';
                 tbody.innerHTML += `
-                    <tr class="border-b dark:border-darkBorder">
-                        <td class="py-4 px-2 text-left text-xs">${td}</td>
-                        <td class="py-4 px-2 text-left font-semibold">${log.itemName}</td>
-                        <td class="py-4 px-2 font-bold ${typeColor}">${log.type}</td>
-                        <td class="py-4 px-2 font-bold">${sign}${log.change}</td>
-                        <td class="py-4 px-2 text-right text-xs text-gray-500">${log.reason}</td>
+                    <tr class="border-b dark:border-darkBorder hover:bg-gray-50 dark:hover:bg-darkInput/20 transition-colors">
+                        <td class="py-4 px-2 text-left text-xs align-top whitespace-nowrap">${td}</td>
+                        <td class="py-4 px-2 text-left font-semibold align-top">${log.itemName}</td>
+                        <td class="py-4 px-2 font-bold ${typeColor} align-top">${log.type}</td>
+                        <td class="py-4 px-2 font-bold align-top">${sign}${log.change}</td>
+                        <td class="py-4 px-2 text-left text-xs text-gray-500 align-top whitespace-normal break-words max-w-xs">${log.reason}</td>
+                        <td class="py-4 px-2 text-center align-top">
+                            <button onclick="editStockHistory('${log.id}', \`${log.reason}\`)" class="p-1 mr-2 text-gray-400 hover:text-brandGold transition-colors" title="Edit Reason"><i class="fa-solid fa-pen"></i></button>
+                            <button onclick="deleteStockHistory('${log.id}')" class="p-1 text-gray-400 hover:text-brandDanger transition-colors" title="Delete Log"><i class="fa-solid fa-trash"></i></button>
+                        </td>
                     </tr>
                 `;
             });
