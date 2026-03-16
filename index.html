@@ -42,6 +42,7 @@
     <style>
         * { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
         body { user-select: none; } 
+        #financial-report-modal { user-select: text; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 10px; }
@@ -530,6 +531,10 @@
             <div class="p-6 border-b border-gray-200 dark:border-darkBorder flex justify-between items-center bg-gray-50/50 dark:bg-darkBg/50">
                 <h3 class="text-2xl font-bold">Financial Reports</h3>
                 <div class="flex items-center gap-3">
+                    <select id="report-product-filter" class="premium-input py-2 text-sm w-auto" onchange="renderFinancialReport()">
+                        <option value="all">All Transactions</option>
+                        <option value="lumber">C. LUMBER ONLY</option>
+                    </select>
                     <select id="report-type-filter" class="premium-input py-2 text-sm w-auto" onchange="toggleReportFilter()">
                         <option value="weekly">Last 7 Days (Weekly)</option>
                         <option value="monthly">Monthly</option>
@@ -1052,6 +1057,7 @@
             oneWeekAgo.setDate(now.getDate() - 7);
 
             const filterType = document.getElementById('report-type-filter') ? document.getElementById('report-type-filter').value : 'weekly';
+            const productFilter = document.getElementById('report-product-filter') ? document.getElementById('report-product-filter').value : 'all';
             const monthInput = document.getElementById('report-month-filter');
             if(!monthInput.value) monthInput.value = now.toISOString().slice(0, 7);
             const selMonth = monthInput.value;
@@ -1061,7 +1067,12 @@
             
             transactions.forEach(t => {
                 const td = new Date(t.date);
-                if(td.toDateString() === todayStr) { 
+                const isLumber = t.description.toUpperCase().includes('C. LUMBER');
+                
+                let matchesFilter = true;
+                if (productFilter === 'lumber' && !isLumber) matchesFilter = false;
+
+                if(td.toDateString() === todayStr && matchesFilter) { 
                     if(t.type === 'sale') ds += t.amount; else de += t.amount; 
                 }
                 
@@ -1072,7 +1083,7 @@
                     if (t.date.slice(0, 7) === selMonth) includeInPeriod = true;
                 }
 
-                if(includeInPeriod) {
+                if(includeInPeriod && matchesFilter) {
                     if(t.type === 'sale') ps += t.amount; else pe += t.amount;
                     tbody.innerHTML += `
                         <tr class="border-b dark:border-darkBorder hover:bg-gray-50 dark:hover:bg-darkInput/20 transition-colors">
