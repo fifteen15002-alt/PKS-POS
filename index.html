@@ -588,10 +588,12 @@
                 <table class="CENTER TABLE w-full border-collapse">
                     <thead>
                         <tr class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 dark:border-darkBorder bg-gray-50 dark:bg-darkInput/50">
-                            <th class="py-4 px-2 text-left">Date & Time</th>
-                            <th class="py-4 px-2 text-left">Type</th>
-                            <th class="py-4 px-2 text-left">Description</th>
-                            <th class="py-4 px-2 text-right">Amount</th>
+                            <th class="py-4 px-2 text-left">Date</th>
+                            <th class="py-4 px-2 text-left">O.R. #</th>
+                            <th class="py-4 px-2 text-left">Explanation & Particulars</th>
+                            <th class="py-4 px-2 text-right">Debit</th>
+                            <th class="py-4 px-2 text-right">Credit</th>
+                            <th class="py-4 px-2 text-right">Bal</th>
                             <th class="py-4 px-2 text-center">Action</th>
                         </tr>
                     </thead>
@@ -1065,7 +1067,20 @@
             let ds = 0, de = 0, ps = 0, pe = 0;
             const tbody = document.getElementById('financial-table-body'); tbody.innerHTML = '';
             
-            transactions.forEach(t => {
+            // Calculate running balances by sorting chronologically first
+            let sortedTransactions = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
+            let currentBalance = 0;
+            
+            sortedTransactions = sortedTransactions.map(t => {
+                if (t.type === 'sale') currentBalance += t.amount;
+                else currentBalance -= t.amount;
+                return { ...t, runningBalance: currentBalance };
+            });
+
+            // Sort back to descending so the newest entries stay on top
+            sortedTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            sortedTransactions.forEach(t => {
                 const td = new Date(t.date);
                 const isLumber = t.description.toUpperCase().includes('C. LUMBER');
                 
@@ -1085,12 +1100,22 @@
 
                 if(includeInPeriod && matchesFilter) {
                     if(t.type === 'sale') ps += t.amount; else pe += t.amount;
+                    
+                    let debitStr = t.type === 'sale' ? `₱${t.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '';
+                    let creditStr = t.type === 'expense' ? `₱${t.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}` : '';
+                    let balStr = `₱${t.runningBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                    
+                    // Simulate O.R. Number using the first 6 characters of the Firebase ID
+                    let orNumber = t.id.substring(0, 6).toUpperCase();
+
                     tbody.innerHTML += `
                         <tr class="border-b dark:border-darkBorder hover:bg-gray-50 dark:hover:bg-darkInput/20 transition-colors">
-                            <td class="py-4 px-2 text-left text-xs align-top whitespace-nowrap">${td.toLocaleString()}</td>
-                            <td class="py-4 px-2 text-left align-top"><span class="px-2 py-1 rounded text-[10px] font-bold ${t.type === 'sale' ? 'bg-brandSuccess/10 text-brandSuccess' : 'bg-brandDanger/10 text-brandDanger'} uppercase">${t.type}</span></td>
+                            <td class="py-4 px-2 text-left text-xs align-top whitespace-nowrap">${td.toLocaleDateString()}</td>
+                            <td class="py-4 px-2 text-left text-xs align-top font-mono tracking-wider">${orNumber}</td>
                             <td class="py-4 px-2 text-left text-xs align-top whitespace-normal break-words max-w-md leading-relaxed">${t.description}</td>
-                            <td class="py-4 px-2 text-right align-top ${t.type === 'sale' ? 'text-brandSuccess' : 'text-brandDanger'} font-bold">₱${t.amount.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                            <td class="py-4 px-2 text-right align-top text-brandSuccess font-bold">${debitStr}</td>
+                            <td class="py-4 px-2 text-right align-top text-brandDanger font-bold">${creditStr}</td>
+                            <td class="py-4 px-2 text-right align-top text-brandGold font-bold">${balStr}</td>
                             <td class="py-4 px-2 text-center align-top"><button onclick="deleteTransaction('${t.id}')" class="p-1 text-gray-400 hover:text-brandDanger transition-colors" title="Void Transaction"><i class="fa-solid fa-ban"></i></button></td>
                         </tr>`;
                 }
